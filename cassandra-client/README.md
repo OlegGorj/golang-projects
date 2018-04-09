@@ -49,6 +49,11 @@ To test your setup, insert sample record:
 INSERT INTO example.tweet (timeline, id, text) VALUES ('me', UUID(), 'hello world');
 ```
 
+## Cassandra client use
+
+```
+go run cassandra-client.go -h 127.0.0.1 -u cassandra -p cassandra
+```
 
 
 ---
