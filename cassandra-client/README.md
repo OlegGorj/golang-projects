@@ -1,6 +1,6 @@
 [![GitHub release](https://img.shields.io/github/release/OlegGorj/go-templates-collection.svg)](https://github.com/OlegGorj/go-templates-collection/releases)
 [![GitHub issues](https://img.shields.io/github/issues/OlegGorj/go-templates-collection.svg)](https://github.com/OlegGorj/go-templates-collection/issues)
-![Quality Gates](https://sonarcloud.io/api/project_badges/measure?project=cassandra-client&metric=alert_status)
+[![Codacy Badge](https://api.codacy.com/project/badge/Grade/1818748c6ba745ce97bb43ab6dbbfd2c)](https://www.codacy.com/app/oleggorj/go-templates-collection?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=OlegGorj/go-templates-collection&amp;utm_campaign=Badge_Grade)
 
 # cassandra-go-client
 
@@ -29,24 +29,30 @@ For more details related to cassandra.yml and configurations, here is [the link]
 
 ## Cassandra keyspace and table setup steps
 
+
+Then, execute the following commands to create keyspace, table and index.
+You would need to provide user name and password of Admin type of user, as well as IP of your cluster.
+Let's assume for now, user name is `cassandra`, passwords is `cassandra` and IP is local hosts `127.0.0.1`
+
+```
+git clone https://github.com/OlegGorj/go-templates-collection.git
+cd ./go-templates-collection/cassandra-client
+./cassandra-setup.sh cassandra cassandra 127.0.0.1
+```
+last command should complete with no messages.
+
+
 Using `cqlsh` login to your C* cluster
 
 ```
-cqlsh -u cassandra -p cassandra
-```
-
-Then, execute the following commands to create keyspace, table and index.
-
-```
-create keyspace example with replication = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 };
-create table example.tweet(timeline text, id UUID, text text, PRIMARY KEY(id));
-create index on example.tweet(timeline);
+cqlsh -u <username> -p <password>
 ```
 
 To test your setup, insert sample record:
 
 ```
 INSERT INTO example.tweet (timeline, id, text) VALUES ('me', UUID(), 'hello world');
+SELECT * FROM example.tweet;
 ```
 
 ## Cassandra client use
