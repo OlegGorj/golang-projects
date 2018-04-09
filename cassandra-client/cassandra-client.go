@@ -16,8 +16,8 @@ type tweetStruct struct {
 	text string     `json:"text"`
 }
 
-func (s tweetStruct) isEmpty() bool {
-    return s.id == (gocql.UUID{})
+func (tw tweetStruct) isEmpty() bool {
+    return tw.id == (gocql.UUID{})
 }
 
 func (tw tweetStruct) Println() int {
