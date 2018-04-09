@@ -1,4 +1,7 @@
-# cassandra-client
+[![GitHub release](https://img.shields.io/github/release/OlegGorj/go-templates-collection.svg)](https://github.com/OlegGorj/go-templates-collection/releases)
+[![GitHub issues](https://img.shields.io/github/issues/OlegGorj/go-templates-collection.svg)](https://github.com/OlegGorj/go-templates-collection/issues)
+
+# cassandra-go-client
 
 Very light and simple Cassandra client written in GO for testing purposes.
 
