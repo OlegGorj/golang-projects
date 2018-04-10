@@ -12,9 +12,10 @@ import (
 	"github.com/gocql/gocql"
 	"io/ioutil"
 	"log"
-	_ "net/http"
+	"net/http"
 	"strings"
 	_ "time"
+	"fmt"
 )
 
 // Struct to represent configuration file params
@@ -72,15 +73,19 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 //------------------------------------------------------------------------------------------------
 // Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
+  body, _ := ioutil.ReadAll(r.Body)
 
 }
+// Router for /user/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
-
+  body, _ := ioutil.ReadAll(r.Body)
 }
 //------------------------------------------------------------------------------------------------
 // MAIN
 //------------------------------------------------------------------------------------------------
 func main() {
+
+	log.Println("API Service starting..")
 
 	confFilePath := flag.String("conf", "config.json", "path to application config")
 	flag.Parse()
@@ -88,6 +93,8 @@ func main() {
 	if err != nil {
 		log.Fatal("Couldn't read config file ", err)
 	}
+	log.Println("Configs initialized.")
+
 	// Initialize Cassandra cluster
 	cluster := gocql.NewCluster(strings.Split(config.Serverslist, ",")...)
 	cluster.Authenticator = gocql.PasswordAuthenticator{
@@ -99,16 +106,19 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	log.Println("Session to backend created.")
 	// create datastructures
 	err = createDatastructure(session, config.Keyspace)
 	if err != nil {
 		log.Fatal("Get an error while creating datastructures: ", err)
 	}
   session.Close()
+	log.Println("Backend datastructures created.")
 
 	cluster.Keyspace = config.Keyspace
 	session, _ = cluster.CreateSession()
 	defer session.Close()
+	log.Println("Keyspace for backend is set.")
 
 	// HTTP section starts here...
 	// If someone ask root, reply 404
@@ -126,5 +136,7 @@ func main() {
 	if err != nil {
 		log.Fatal("Error on creating listener: ", err)
 	}
+
+	log.Println("API Service shuting down..")
 
 }
