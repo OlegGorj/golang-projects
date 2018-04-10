@@ -16,7 +16,7 @@ import (
 	"strings"
 	_ "time"
 	"io"
-	"fmt"
+	_ "fmt"
 )
 
 // Struct to represent configuration file params
@@ -29,7 +29,7 @@ type configFile struct {
 }
 
 // Simple structure to represent login and add user response
-type newUserRequest struct {
+type userStruct struct {
 	Username string
 	Password string
 }
@@ -70,10 +70,10 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 	return err
 }
 //------------------------------------------------------------------------------------------------
-// Functions section
+// Users Functions section
 //------------------------------------------------------------------------------------------------
 func createUser(body *[]byte, session *gocql.Session) (int, error) {
-	var request newUserRequest
+	var request userStruct
 	var count int
 
 	err := json.Unmarshal(*body, &request)
@@ -98,6 +98,33 @@ func createUser(body *[]byte, session *gocql.Session) (int, error) {
 }
 
 //------------------------------------------------------------------------------------------------
+func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
+	var request userStruct
+	var count int
+
+	err := json.Unmarshal(*body, &request)
+	if err != nil { return http.StatusBadRequest, err }
+	// Here should be call of function to extended validation, but nothing was in requirements
+	if request.Username == "" { return http.StatusBadRequest, errors.New("User name is empty") }
+
+	// Check if such user existing in db
+	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "'").Scan(&count)
+	if err != nil { return http.StatusInternalServerError, err }
+	if count > 0 {
+		var applied bool
+		err = session.Query("UPDATE testapp.users SET active = true WHERE username = '" + request.Username + "'").Scan(&applied)
+		if applied == true {
+				return http.StatusOK, err
+			}else{
+				return http.StatusInternalServerError, errors.New("Error deleting user.")
+			}
+	}else{
+		return http.StatusBadRequest, errors.New("No such user")
+	}
+  return http.StatusOK, err
+}
+
+//------------------------------------------------------------------------------------------------
 // Handlers section
 //------------------------------------------------------------------------------------------------
 // Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
@@ -110,29 +137,35 @@ func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session)
   body, _ := ioutil.ReadAll(r.Body)
 	switch {
 
-	case r.Method == "GET":
-		// GET request
-		var username string
-		// Get users list
-		iter := session.Query("SELECT username from users ").Iter()
-		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		io.WriteString(w, "Existing users are:\n")
-		for i := 0;iter.Scan(&username);i++ {
-			io.WriteString(w, username + "\n")
-		}
-		if err := iter.Close(); err != nil { log.Fatal(err) }
+	  case r.Method == "GET":
+	  	// GET request
+	  	var username string
+	  	// Get users list
+	  	iter := session.Query("SELECT username from users ").Iter()
+	  	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	  	w.WriteHeader(http.StatusOK)
+	  	io.WriteString(w, "Existing users are:\n")
+	  	for i := 0;iter.Scan(&username);i++ {
+	  		io.WriteString(w, username + "\n")
+	  	}
+	  	if err := iter.Close(); err != nil { log.Fatal(err) }
 
-	case r.Method == "POST":
-		// POST method
-		error_code, err := createUser(&body, session)
-		if err != nil {
-			log.Println("Error on creating user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
-		}
-		http.Error(w, http.StatusText(error_code), error_code)
+	  case r.Method == "POST":
+	  	error_code, err := createUser(&body, session)
+	  	if err != nil {
+	  		log.Println("Error on creating user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+	  	}
+	  	http.Error(w, http.StatusText(error_code), error_code)
 
-	default:
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	  case r.Method == "DELETE":
+			error_code, err := deleteUser(&body, session)
+	  	if err != nil {
+	  		log.Println("Error on deleting user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+	  	}
+	  	http.Error(w, http.StatusText(error_code), error_code)
+
+	  default:
+	  	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 
 	}
 }
