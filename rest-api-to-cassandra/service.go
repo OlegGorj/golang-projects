@@ -3,11 +3,11 @@ package main
 
 import (
 	_ "crypto/rand"
-	_ "crypto/sha256"
+	"crypto/sha512"
 	_ "encoding/base64"
-	_ "encoding/hex"
+  "encoding/hex"
 	"encoding/json"
-	_ "errors"
+	"errors"
 	"flag"
 	"github.com/gocql/gocql"
 	"io/ioutil"
@@ -16,6 +16,7 @@ import (
 	"strings"
 	_ "time"
 	"io"
+	"fmt"
 )
 
 // Struct to represent configuration file params
@@ -69,6 +70,34 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 	return err
 }
 //------------------------------------------------------------------------------------------------
+// Functions section
+//------------------------------------------------------------------------------------------------
+func createUser(body *[]byte, session *gocql.Session) (int, error) {
+	var request newUserRequest
+	var count int
+
+	err := json.Unmarshal(*body, &request)
+	if err != nil { return http.StatusBadRequest, err }
+
+	// Here should be call of function to extended validation, but nothing was in requirements
+	if request.Password == "" || request.Username == "" { return http.StatusBadRequest, errors.New("User or password is empty") }
+
+	// Check if such user already existing
+	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "'").Scan(&count)
+	if err != nil { return http.StatusInternalServerError, err }
+
+	if count > 0 { return http.StatusConflict, errors.New("Such user alredy existing") }
+
+	// Prepare password hash to write it to DB
+	hash := sha512.New()
+	hash.Write([]byte(request.Password))
+  err = session.Query("INSERT INTO users (username, password) VALUES (?,?)", request.Username, hex.EncodeToString(hash.Sum(nil))).Exec()
+	if err != nil { return http.StatusInternalServerError, err }
+
+	return http.StatusCreated, nil
+}
+
+//------------------------------------------------------------------------------------------------
 // Handlers section
 //------------------------------------------------------------------------------------------------
 // Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
@@ -78,31 +107,33 @@ func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Sessi
 }
 // Router for /user/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
-  //body, _ := ioutil.ReadAll(r.Body)
+  body, _ := ioutil.ReadAll(r.Body)
 	switch {
 
 	case r.Method == "GET":
 		// GET request
-		var username, password string
+		var username string
 		// Get users list
-		iter := session.Query("SELECT * from users ").Iter()
-		//if err != nil {
-		//	error_code := http.StatusInternalServerError
-		//	http.Error(w, http.StatusText(error_code), error_code)
-		//}
+		iter := session.Query("SELECT username from users ").Iter()
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusOK)
 		io.WriteString(w, "Existing users are:\n")
-		for i := 0;iter.Scan(&username, &password);i++ {
+		for i := 0;iter.Scan(&username);i++ {
 			io.WriteString(w, username + "\n")
 		}
 		if err := iter.Close(); err != nil { log.Fatal(err) }
 
 	case r.Method == "POST":
 		// POST method
+		error_code, err := createUser(&body, session)
+		if err != nil {
+			log.Println("Error on creating user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+		}
+		http.Error(w, http.StatusText(error_code), error_code)
 
 	default:
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+
 	}
 }
 //------------------------------------------------------------------------------------------------
