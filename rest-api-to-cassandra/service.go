@@ -32,6 +32,9 @@ type newUserRequest struct {
 	Password string
 }
 
+//------------------------------------------------------------------------------------------------
+// CONFIG section
+//------------------------------------------------------------------------------------------------
 func readConfig(confFilePath string) (configFile, error) {
 	var config configFile
 	confFile, err := ioutil.ReadFile(confFilePath)
@@ -41,7 +44,9 @@ func readConfig(confFilePath string) (configFile, error) {
 	json.Unmarshal(confFile, &config)
 	return config, nil
 }
-
+//------------------------------------------------------------------------------------------------
+// datastructures section
+//------------------------------------------------------------------------------------------------
 func createDatastructure(session *gocql.Session, keyspace string) error {
 	err := session.Query("CREATE KEYSPACE IF NOT EXISTS " + keyspace +
 		" WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }").Exec()
@@ -62,7 +67,19 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 		"username varchar)").Exec()
 	return err
 }
+//------------------------------------------------------------------------------------------------
+// Handlers section
+//------------------------------------------------------------------------------------------------
+// Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
+func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
 
+}
+func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
+
+}
+//------------------------------------------------------------------------------------------------
+// MAIN
+//------------------------------------------------------------------------------------------------
 func main() {
 
 	confFilePath := flag.String("conf", "config.json", "path to application config")
@@ -92,6 +109,22 @@ func main() {
 	cluster.Keyspace = config.Keyspace
 	session, _ = cluster.CreateSession()
 	defer session.Close()
-		
+
+	// HTTP section starts here...
+	// If someone ask root, reply 404
+	http.HandleFunc("/", http.NotFound)
+  // handle /users endpoint
+	http.HandleFunc("/user/", func(w http.ResponseWriter, r *http.Request) {
+		userHandler(w, r, session)
+	})
+  // handle /session endpoint
+	http.HandleFunc("/session/", func(w http.ResponseWriter, r *http.Request) {
+		sessionHandler(w, r, session)
+	})
+
+	err = http.ListenAndServe(":"+config.Port, nil)
+	if err != nil {
+		log.Fatal("Error on creating listener: ", err)
+	}
 
 }
