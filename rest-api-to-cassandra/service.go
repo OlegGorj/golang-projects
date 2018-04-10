@@ -106,7 +106,6 @@ func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
 	if err != nil { return http.StatusBadRequest, err }
 	// Here should be call of function to extended validation, but nothing was in requirements
 	if request.Username == "" { return http.StatusBadRequest, errors.New("User name is empty") }
-
 	// Check if such user existing in db
 	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "'").Scan(&count)
 	if err != nil { return http.StatusInternalServerError, err }
