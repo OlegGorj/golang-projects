@@ -17,9 +17,12 @@ Example of config file:
 ```json
 {
   "port": "8080",
-  "serverslist": "2a02:6b8:0:1a71::2c0d",
-  "keyspace": "mytestapp"
+  "serverslist": "127.0.0.1,127.0.0.1",
+  "keyspace": "testapp",
+  "username": "cassandra",
+  "password": "cassandra"
 }
+
 ```
 
 External dependency: http://github.com/gocql/gocq

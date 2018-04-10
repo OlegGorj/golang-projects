@@ -15,7 +15,7 @@ import (
 	"net/http"
 	"strings"
 	_ "time"
-	"fmt"
+	"io"
 )
 
 // Struct to represent configuration file params
@@ -73,12 +73,37 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 //------------------------------------------------------------------------------------------------
 // Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
-  body, _ := ioutil.ReadAll(r.Body)
+  //body, _ := ioutil.ReadAll(r.Body)
 
 }
 // Router for /user/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
-  body, _ := ioutil.ReadAll(r.Body)
+  //body, _ := ioutil.ReadAll(r.Body)
+	switch {
+
+	case r.Method == "GET":
+		// GET request
+		var username, password string
+		// Get users list
+		iter := session.Query("SELECT * from users ").Iter()
+		//if err != nil {
+		//	error_code := http.StatusInternalServerError
+		//	http.Error(w, http.StatusText(error_code), error_code)
+		//}
+		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+		w.WriteHeader(http.StatusOK)
+		io.WriteString(w, "Existing users are:\n")
+		for i := 0;iter.Scan(&username, &password);i++ {
+			io.WriteString(w, username + "\n")
+		}
+		if err := iter.Close(); err != nil { log.Fatal(err) }
+
+	case r.Method == "POST":
+		// POST method
+
+	default:
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	}
 }
 //------------------------------------------------------------------------------------------------
 // MAIN
