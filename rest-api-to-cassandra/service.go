@@ -21,11 +21,14 @@ import (
 
 // Struct to represent configuration file params
 type configFile struct {
-	Port        string
-	Serverslist string
-	Keyspace    string
-	Username    string
-	Password    string
+	Port          string
+	Serverslist   string
+	Keyspace      string
+	Username      string
+	Password      string
+	keyspace      string
+	userstable    string
+	sessionstable string
 }
 
 // Simple structure to represent login and add user response
@@ -33,6 +36,7 @@ type userStruct struct {
 	Username string
 	Password string
 }
+
 
 //------------------------------------------------------------------------------------------------
 // CONFIG section
@@ -314,22 +318,24 @@ func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session)
 // MAIN
 //------------------------------------------------------------------------------------------------
 func main() {
+  var err error
+	var configuration configFile
 
 	log.Println("API Service starting..")
 
 	confFilePath := flag.String("conf", "config.json", "path to application config")
 	flag.Parse()
-	config, err := readConfig(*confFilePath)
+	configuration, err = readConfig(*confFilePath)
 	if err != nil {
 		log.Fatal("Couldn't read config file ", err)
 	}
 	log.Println("Configs initialized.")
 
 	// Initialize Cassandra cluster
-	cluster := gocql.NewCluster(strings.Split(config.Serverslist, ",")...)
+	cluster := gocql.NewCluster(strings.Split(configuration.Serverslist, ",")...)
 	cluster.Authenticator = gocql.PasswordAuthenticator{
-		Username: config.Username,
-		Password: config.Password,
+		Username: configuration.Username,
+		Password: configuration.Password,
 	}
 	// Establish connection to Cassandra
 	session, err := cluster.CreateSession()
@@ -338,14 +344,14 @@ func main() {
 	}
 	log.Println("Session to backend created.")
 	// create datastructures
-	err = createDatastructure(session, config.Keyspace)
+	err = createDatastructure(session, configuration.Keyspace)
 	if err != nil {
 		log.Fatal("Get an error while creating datastructures: ", err)
 	}
   session.Close()
 	log.Println("Backend datastructures created.")
 
-	cluster.Keyspace = config.Keyspace
+	cluster.Keyspace = configuration.Keyspace
 	session, _ = cluster.CreateSession()
 	defer session.Close()
 	log.Println("Keyspace for backend is set.")
@@ -362,7 +368,7 @@ func main() {
 		sessionHandler(w, r, session)
 	})
 
-	err = http.ListenAndServe(":"+config.Port, nil)
+	err = http.ListenAndServe(":" + configuration.Port, nil)
 	if err != nil {
 		log.Fatal("Error on creating listener: ", err)
 	}
