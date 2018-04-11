@@ -123,6 +123,9 @@ func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
 	if err != nil { return http.StatusInternalServerError, err }
   return http.StatusOK, err
 }
+
+//------------------------------------------------------------------------------------------------
+// Session Functions section
 //------------------------------------------------------------------------------------------------
 // Generation random session ID and verifiyng that it is unique
 func generateSessionId(session *gocql.Session) (string, error) {
@@ -143,7 +146,7 @@ func generateSessionId(session *gocql.Session) (string, error) {
 
 	return session_id, nil
 }
-
+//------------------------------------------------------------------------------------------------
 func deleteSession(session *gocql.Session, session_id string) (int, error) {
 	// fast path to don't use DB when session_id cookie not indicated at all
 	if session_id == "" {
@@ -157,6 +160,74 @@ func deleteSession(session *gocql.Session, session_id string) (int, error) {
 	}
 
 	return http.StatusOK, nil
+
+}
+//------------------------------------------------------------------------------------------------
+// Function handling creating new session
+func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
+	var request newUserRequest
+	var session_id string
+	var count int
+
+	err := json.Unmarshal(*body, &request)
+	if err != nil {
+		return session_id, http.StatusBadRequest, err
+	}
+
+	// Here should be call of function to extended validation, but nothing was in requirements
+	if request.Password == "" || request.Username == "" {
+		return session_id, http.StatusBadRequest, errors.New("User or password is empty")
+	}
+
+	// Prepare password hash to make request to DB
+	hash := sha256.New()
+	hash.Write([]byte(request.Password))
+
+	// Check if user and password is valid
+	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "' and password ='" + hex.EncodeToString(hash.Sum(nil)) + "'").Scan(&count)
+	if err != nil {
+		return session_id, http.StatusInternalServerError, err
+	}
+
+	if count == 0 {
+		return session_id, http.StatusUnauthorized, errors.New("User name or password is not correct")
+	}
+
+	// prepare session ID for a new session
+	session_id, err = generateSessionId(session)
+	if err != nil {
+		return session_id, http.StatusInternalServerError, err
+	}
+
+	// set TTL to a one year to expire in same time with cookie
+	err = session.Query("INSERT INTO sessions (session_id,username) VALUES (?,?) USING TTL 31536000", session_id, request.Username).Exec()
+	if err != nil {
+		return session_id, http.StatusInternalServerError, err
+	}
+
+	return session_id, http.StatusCreated, nil
+}
+//------------------------------------------------------------------------------------------------
+// Function checking if provided cookie matching to active sessions
+func checkSession(session *gocql.Session, session_id string) (int, error) {
+	var count int
+
+	// fast path to don't use DB when session_id cookie not indicated at all
+	if session_id == "" {
+		return http.StatusUnauthorized, nil
+	}
+
+	// Check if such session exist
+	err := session.Query("SELECT COUNT(*) from sessions where session_id = '" + session_id + "'").Scan(&count)
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	if count == 0 {
+		return http.StatusUnauthorized, nil
+	} else {
+		return http.StatusOK, nil
+	}
 
 }
 
