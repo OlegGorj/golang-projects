@@ -7,13 +7,19 @@
 
 This project designed to test functionality of Golang REST API with Cassandra as backend.
 
-Service have configuration file(config.json), which contains:
+>
+> Project to setup Cassandra database in Docker containers can be found at this [link: Cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker). You can setup ether single container for one-node cluster on local machine or deploy multiple containers to create multiple Cassandra nodes.
+>
+
+Service have configuration file (default `config.json`), which contains:
 
  - port for service listen
  - addresses of Cassandra servers
  - Keyspace name. If such keyspace is absent, application will create new one with necessary tables.
+ - user name and password for Cassandra backend
 
 ### Example of config file:
+
 ```json
 {
   "port": "8080",
