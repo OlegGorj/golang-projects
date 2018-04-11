@@ -65,7 +65,7 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 	err = session.Query("CREATE INDEX IF NOT EXISTS ON testapp.users (ts)").Exec()
 	if err != nil { return err }
 
-	err = session.Query("CREATE TABLE IF NOT EXISTS " +keyspace + ".sessions (session_id varchar PRIMARY KEY, username varchar)").Exec()
+	err = session.Query("CREATE TABLE IF NOT EXISTS " +keyspace + ".sessions (sessionID varchar PRIMARY KEY, username varchar)").Exec()
 
 	return err
 }
@@ -124,33 +124,33 @@ func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
 // Session Functions section
 //------------------------------------------------------------------------------------------------
 // Generation random session ID and verifiyng that it is unique
-func generateSessionId(session *gocql.Session) (string, error) {
-	var session_id string
+func generateSessionID(session *gocql.Session) (string, error) {
+	var sessionID string
 	count := 2
 	size := 32
 	rb := make([]byte, size)
 
-	// generating session_id while it will be uniq(actually in most cases it will be uniq in a first time)
+	// generating sessionID while it will be uniq(actually in most cases it will be uniq in a first time)
 	for count != 0 {
 		rand.Read(rb)
-		session_id = base64.URLEncoding.EncodeToString(rb)
-		err := session.Query("SELECT COUNT(*) from sessions where session_id = '" + session_id + "'").Scan(&count)
+		sessionID = base64.URLEncoding.EncodeToString(rb)
+		err := session.Query("SELECT COUNT(*) from sessions where sessionID = '" + sessionID + "'").Scan(&count)
 		if err != nil {
-			return session_id, err
+			return sessionID, err
 		}
 	}
 
-	return session_id, nil
+	return sessionID, nil
 }
 //------------------------------------------------------------------------------------------------
-func deleteSession(session *gocql.Session, session_id string) (int, error) {
-	// fast path to don't use DB when session_id cookie not indicated at all
-	if session_id == "" {
+func deleteSession(session *gocql.Session, sessionID string) (int, error) {
+	// fast path to don't use DB when sessionID cookie not indicated at all
+	if sessionID == "" {
 		return http.StatusUnauthorized, nil
 	}
 
 	// removing session for DB
-	err := session.Query("DELETE FROM sessions WHERE session_id = '" + session_id + "'").Exec()
+	err := session.Query("DELETE FROM sessions WHERE sessionID = '" + sessionID + "'").Exec()
 	if err != nil {
 		return http.StatusInternalServerError, err
 	}
@@ -162,16 +162,16 @@ func deleteSession(session *gocql.Session, session_id string) (int, error) {
 // Function handling creating new session
 func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
 	var request userStruct
-	var session_id string
+	var sessionID string
 	var password, userid string
 
 	err := json.Unmarshal(*body, &request)
 	if err != nil {
-		return session_id, http.StatusBadRequest, err
+		return sessionID, http.StatusBadRequest, err
 	}
 
 	// Here should be call of function to extended validation, but nothing was in requirements
-	if request.Password == "" || request.Username == "" { return session_id, http.StatusBadRequest, errors.New("User or password is empty") }
+	if request.Password == "" || request.Username == "" { return sessionID, http.StatusBadRequest, errors.New("User or password is empty") }
 
 	// Prepare password hash
 	hash := sha512.New()
@@ -182,37 +182,36 @@ func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
 //	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "' and password ='" + hex.EncodeToString(hash.Sum(nil)) + "'").Scan(&count)
 // hence, solution is to get password hash and compare with hash of provided password
 	err = session.Query("SELECT id, password from users where username = '" + request.Username + "' ").Scan(&userid, &password)
-	if err != nil { return session_id, http.StatusInternalServerError, err }
-	if userid == "" {return session_id, http.StatusUnauthorized, errors.New("User does not exist")}
-	if password != hex.EncodeToString(hash.Sum(nil)) { return session_id, http.StatusUnauthorized, errors.New("User password does not match") }
+	if err != nil { return sessionID, http.StatusInternalServerError, err }
+	if userid == "" {return sessionID, http.StatusUnauthorized, errors.New("User does not exist")}
+	if password != hex.EncodeToString(hash.Sum(nil)) { return sessionID, http.StatusUnauthorized, errors.New("User password does not match") }
 	// prepare session ID for a new session
-	session_id, err = generateSessionId(session)
+	sessionID, err = generateSessionID(session)
 	if err != nil {
-		return session_id, http.StatusInternalServerError, err
+		return sessionID, http.StatusInternalServerError, err
 	}
 
 	// set TTL to a one year to expire in same time with cookie
-	err = session.Query("INSERT INTO sessions (session_id,username) VALUES (?,?) USING TTL 31536000", session_id, request.Username).Exec()
-	if err != nil { return session_id, http.StatusInternalServerError, err  }
+	err = session.Query("INSERT INTO sessions (sessionID,username) VALUES (?,?) USING TTL 31536000", sessionID, request.Username).Exec()
+	if err != nil { return sessionID, http.StatusInternalServerError, err  }
 
-	return session_id, http.StatusCreated, nil
+	return sessionID, http.StatusCreated, nil
 }
 //------------------------------------------------------------------------------------------------
 // Function checking if provided cookie matching to active sessions
-func checkSession(session *gocql.Session, session_id string) (int, error) {
+func checkSession(session *gocql.Session, sessionID string) (int, error) {
 	var count int
-	// fast path to don't use DB when session_id cookie not indicated at all
-	if session_id == "" { return http.StatusUnauthorized, nil }
+	// fast path to don't use DB when sessionID cookie not indicated at all
+	if sessionID == "" { return http.StatusUnauthorized, nil }
 
 	// Check if such session exist
-	err := session.Query("SELECT COUNT(*) from sessions where session_id = '" + session_id + "'").Scan(&count)
+	err := session.Query("SELECT COUNT(*) from sessions where sessionID = '" + sessionID + "'").Scan(&count)
 	if err != nil { return http.StatusInternalServerError, err }
 
 	if count == 0 {
 		return http.StatusUnauthorized, nil
-	} else {
-		return http.StatusOK, nil
 	}
+	return http.StatusOK, nil
 
 }
 
@@ -225,42 +224,42 @@ func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Sessi
 
 	switch {
 		case r.Method == "POST":
-				session_id, errorCode, err := createSession(&body, session)
+				sessionID, errorCode, err := createSession(&body, session)
 				if err != nil { log.Println("Error on creating session: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))  }
 
 				// Set expire for a one year, same as in sessions table
-				if session_id != "" {
+				if sessionID != "" {
 					expire := time.Now().AddDate(1, 0, 0)
 					authCookie := &http.Cookie{
-						Name:    "session_id",
+						Name:    "sessionID",
 						Expires: expire,
-						Value:   session_id,
+						Value:   sessionID,
 					}
 					http.SetCookie(w, authCookie)
 				}
 				http.Error(w, http.StatusText(errorCode), errorCode)
 
 		case r.Method == "GET":
-				session_id, err := r.Cookie("session_id")
-				//  this is critial - when cookie doesnot exist, session_id returned as nil, hence next call (checkSession) will fail
-				if err != nil { log.Println("Cookie returned empty session_id: ", err); return }
+				sessionID, err := r.Cookie("sessionID")
+				//  this is critial - when cookie doesnot exist, sessionID returned as nil, hence next call (checkSession) will fail
+				if err != nil { log.Println("Cookie returned empty sessionID: ", err); return }
 
-				errorCode, err := checkSession(session, session_id.Value)
+				errorCode, err := checkSession(session, sessionID.Value)
 				if err != nil { log.Println("Error on checking authorization: ", err) }
 				http.Error(w, http.StatusText(errorCode), errorCode)
 
 		case r.Method == "DELETE":
-				session_id, _ := r.Cookie("session_id")
-				errorCode, err := deleteSession(session, session_id.Value)
+				sessionID, _ := r.Cookie("sessionID")
+				errorCode, err := deleteSession(session, sessionID.Value)
 				if err != nil {
 					log.Println("Error on checking authorization: ", err)
 				}
 
-				// Rewrite session_id cookie with empty sting and set expiration now
+				// Rewrite sessionID cookie with empty sting and set expiration now
 				expire := time.Now()
 
 				authCookie := &http.Cookie{
-					Name:    "session_id",
+					Name:    "sessionID",
 					Expires: expire,
 					Value:   "",
 				}
