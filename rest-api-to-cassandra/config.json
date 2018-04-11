@@ -1,0 +1,9 @@
+{
+  "port": "8080",
+  "serverslist": "127.0.0.1,127.0.0.1",
+  "keyspace": "testapp",
+  "userstable": "users",
+  "sessionstable": "session",
+  "username": "cassandra",
+  "password": "cassandra"
+}
