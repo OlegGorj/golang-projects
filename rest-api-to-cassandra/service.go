@@ -144,6 +144,22 @@ func generateSessionId(session *gocql.Session) (string, error) {
 	return session_id, nil
 }
 
+func deleteSession(session *gocql.Session, session_id string) (int, error) {
+	// fast path to don't use DB when session_id cookie not indicated at all
+	if session_id == "" {
+		return http.StatusUnauthorized, nil
+	}
+
+	// removing session for DB
+	err := session.Query("DELETE FROM sessions WHERE session_id = '" + session_id + "'").Exec()
+	if err != nil {
+		return http.StatusInternalServerError, err
+	}
+
+	return http.StatusOK, nil
+
+}
+
 //------------------------------------------------------------------------------------------------
 // Handlers section
 //------------------------------------------------------------------------------------------------
@@ -202,7 +218,7 @@ func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Sessi
 	default:
 		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
-	
+
 }
 // Router for /user/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
