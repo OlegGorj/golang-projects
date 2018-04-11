@@ -90,7 +90,7 @@ func createUser(body *[]byte, session *gocql.Session) (int, error) {
 	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "'").Scan(&count)
 	if err != nil { return http.StatusInternalServerError, err }
 
-	if count > 0 { return http.StatusConflict, errors.New("Such user alredy existing") }
+	if count > 0 { return http.StatusConflict, errors.New("User with same name already exists") }
 
 	// Prepare password hash to write it to DB
 	hash := sha512.New()
@@ -123,14 +123,86 @@ func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
 	if err != nil { return http.StatusInternalServerError, err }
   return http.StatusOK, err
 }
+//------------------------------------------------------------------------------------------------
+// Generation random session ID and verifiyng that it is unique
+func generateSessionId(session *gocql.Session) (string, error) {
+	var session_id string
+	count := 2
+	size := 32
+	rb := make([]byte, size)
+
+	// generating session_id while it will be uniq(actually in most cases it will be uniq in a first time)
+	for count != 0 {
+		rand.Read(rb)
+		session_id = base64.URLEncoding.EncodeToString(rb)
+		err := session.Query("SELECT COUNT(*) from sessions where session_id = '" + session_id + "'").Scan(&count)
+		if err != nil {
+			return session_id, err
+		}
+	}
+
+	return session_id, nil
+}
 
 //------------------------------------------------------------------------------------------------
 // Handlers section
 //------------------------------------------------------------------------------------------------
 // Router for /session/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
-  //body, _ := ioutil.ReadAll(r.Body)
+	body, _ := ioutil.ReadAll(r.Body)
 
+	switch {
+	case r.Method == "POST":
+		session_id, error_code, err := createSession(&body, session)
+		if err != nil {
+			log.Println("Error on creating session: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+		}
+
+		// Set expire for a one year, same as in sessions table
+		if session_id != "" {
+			expire := time.Now().AddDate(1, 0, 0)
+
+			authCookie := &http.Cookie{
+				Name:    "session_id",
+				Expires: expire,
+				Value:   session_id,
+			}
+
+			http.SetCookie(w, authCookie)
+		}
+
+		http.Error(w, http.StatusText(error_code), error_code)
+
+	case r.Method == "GET":
+		session_id, _ := r.Cookie("session_id")
+		error_code, err := checkSession(session, session_id.Value)
+		if err != nil {
+			log.Println("Error on checking authorization: ", err)
+		}
+		http.Error(w, http.StatusText(error_code), error_code)
+	case r.Method == "DELETE":
+		session_id, _ := r.Cookie("session_id")
+		error_code, err := deleteSession(session, session_id.Value)
+		if err != nil {
+			log.Println("Error on checking authorization: ", err)
+		}
+
+		// Rewrite session_id cookie with empty sting and set expiration now
+		expire := time.Now()
+
+		authCookie := &http.Cookie{
+			Name:    "session_id",
+			Expires: expire,
+			Value:   "",
+		}
+
+		http.SetCookie(w, authCookie)
+
+		http.Error(w, http.StatusText(error_code), error_code)
+	default:
+		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+	}
+	
 }
 // Router for /user/ functions. Routing based on request method, i.e. GET, POST, PUT, DELETE.
 func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session) {
