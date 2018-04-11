@@ -52,19 +52,23 @@ func readConfig(confFilePath string) (configFile, error) {
 func createDatastructure(session *gocql.Session, keyspace string) error {
 	err := session.Query("CREATE KEYSPACE IF NOT EXISTS " + keyspace +
 		" WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }").Exec()
-	if err != nil {
-		return err
-	}
+	if err != nil { return err }
 
-	err = session.Query("CREATE TABLE IF NOT EXISTS " + keyspace + ".users (" +
-		"username varchar," +
-		"password varchar," +
-		"PRIMARY KEY(username))").Exec()
-	if err != nil {
-		return err
-	}
+	err = session.Query("CREATE TABLE IF NOT EXISTS " + keyspace + ".users (id UUID, username varchar, password varchar, active boolean, ts timestamp, PRIMARY KEY (id) )").Exec()
+	if err != nil { return err }
 
-	err = session.Query("CREATE TABLE IF NOT EXISTS " + keyspace + ".sessions (" +
+	err = session.Query("CREATE INDEX IF NOT EXISTS ON testapp.users (username)").Exec()
+	if err != nil { return err }
+
+	err = session.Query("CREATE INDEX IF NOT EXISTS ON testapp.users (active)").Exec()
+	if err != nil { return err }
+
+	err = session.Query("CREATE INDEX IF NOT EXISTS ON testapp.users (ts)").Exec()
+	if err != nil { return err }
+
+	err = session.Query("CREATE TABLE IF NOT EXISTS " +
+		keyspace +
+		".sessions (" +
 		"session_id varchar PRIMARY KEY," +
 		"username varchar)").Exec()
 	return err
@@ -91,7 +95,8 @@ func createUser(body *[]byte, session *gocql.Session) (int, error) {
 	// Prepare password hash to write it to DB
 	hash := sha512.New()
 	hash.Write([]byte(request.Password))
-  err = session.Query("INSERT INTO users (username, password) VALUES (?,?)", request.Username, hex.EncodeToString(hash.Sum(nil))).Exec()
+  err = session.Query("INSERT INTO users (id, username, password, active, ts) VALUES (?, ?, ?, true, toTimestamp(now()) )",
+		gocql.TimeUUID(), request.Username, hex.EncodeToString(hash.Sum(nil)) ).Exec()
 	if err != nil { return http.StatusInternalServerError, err }
 
 	return http.StatusCreated, nil
@@ -100,26 +105,22 @@ func createUser(body *[]byte, session *gocql.Session) (int, error) {
 //------------------------------------------------------------------------------------------------
 func deleteUser(body *[]byte, session *gocql.Session) (int, error) {
 	var request userStruct
-	var count int
+	var id string
 
 	err := json.Unmarshal(*body, &request)
 	if err != nil { return http.StatusBadRequest, err }
+
 	// Here should be call of function to extended validation, but nothing was in requirements
 	if request.Username == "" { return http.StatusBadRequest, errors.New("User name is empty") }
+
 	// Check if such user existing in db
-	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "'").Scan(&count)
+	err = session.Query("SELECT id from users where username = '" + request.Username + "'").Scan(&id)
 	if err != nil { return http.StatusInternalServerError, err }
-	if count > 0 {
-		var applied bool
-		err = session.Query("UPDATE testapp.users SET active = true WHERE username = '" + request.Username + "'").Scan(&applied)
-		if applied == true {
-				return http.StatusOK, err
-			}else{
-				return http.StatusInternalServerError, errors.New("Error deleting user.")
-			}
-	}else{
-		return http.StatusBadRequest, errors.New("No such user")
+	if id == "" {
+		return http.StatusBadRequest, errors.New("No such user (" + request.Username + ")")
 	}
+	err = session.Query("UPDATE testapp.users SET active = false WHERE id = " + id).Exec()
+	if err != nil { return http.StatusInternalServerError, err }
   return http.StatusOK, err
 }
 
@@ -140,7 +141,7 @@ func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session)
 	  	// GET request
 	  	var username string
 	  	// Get users list
-	  	iter := session.Query("SELECT username from users ").Iter()
+	  	iter := session.Query("SELECT username FROM users WHERE active = true").Iter()
 	  	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	  	w.WriteHeader(http.StatusOK)
 	  	io.WriteString(w, "Existing users are:\n")
@@ -150,18 +151,18 @@ func userHandler(w http.ResponseWriter, r *http.Request, session *gocql.Session)
 	  	if err := iter.Close(); err != nil { log.Fatal(err) }
 
 	  case r.Method == "POST":
-	  	error_code, err := createUser(&body, session)
+	  	errorcode, err := createUser(&body, session)
 	  	if err != nil {
-	  		log.Println("Error on creating user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+	  		log.Println("Error on creating user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body) )
 	  	}
-	  	http.Error(w, http.StatusText(error_code), error_code)
+	  	http.Error(w, http.StatusText(errorcode), errorcode)
 
 	  case r.Method == "DELETE":
-			error_code, err := deleteUser(&body, session)
+			errorcode, err := deleteUser(&body, session)
 	  	if err != nil {
-	  		log.Println("Error on deleting user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
+	  		log.Println("Error on deleting user: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body) )
 	  	}
-	  	http.Error(w, http.StatusText(error_code), error_code)
+	  	http.Error(w, http.StatusText(errorcode), errorcode)
 
 	  default:
 	  	http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
