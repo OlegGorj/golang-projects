@@ -10,17 +10,17 @@ import (
 	"github.com/gocql/gocql"
 )
 
-type tweet_struct struct {
+type tweetStruct struct {
 	timeline string `json:"timeline"`
 	id  gocql.UUID  `json:"id"`
 	text string     `json:"text"`
 }
 
-func (s tweet_struct) isEmpty() bool {
-    return s.id == (gocql.UUID{})
+func (tw tweetStruct) isEmpty() bool {
+    return tw.id == (gocql.UUID{})
 }
 
-func (tw tweet_struct) Println() int {
+func (tw tweetStruct) Println() int {
 	fmt.Printf("Tweet>> %+v, %+s, %+s \n", tw.id, tw.text, tw.timeline)
 	return 0
 }
@@ -28,41 +28,41 @@ func (tw tweet_struct) Println() int {
 func main() {
 
 	arguments := os.Args
-	var s_username, s_password, s_host string;
+	var sUsername, sPassword, sHost string;
 	for i:=1;len(arguments) > i;i++ {
 		switch arguments[i] {
 		case "-u":
-				s_username = arguments[i+1]
+				sUsername = arguments[i+1]
 		case "-p":
-				s_password = arguments[i+1]
+				sPassword = arguments[i+1]
 		case "-h":
-				s_host = arguments[i+1]
+				sHost = arguments[i+1]
 		}
 	}
 
-  const c_consistency gocql.Consistency = gocql.One
+  const cConsistency gocql.Consistency = gocql.One
   var id gocql.UUID
 	var text string
-	tweets := make([]tweet_struct, 1)
+	tweets := make([]tweetStruct, 1)
 
-	cluster := gocql.NewCluster(s_host)
+	cluster := gocql.NewCluster(sHost)
   cluster.Authenticator = gocql.PasswordAuthenticator{
-		Username: s_username,
-		Password: s_password,
+		Username: sUsername,
+		Password: sPassword,
 	}
 	cluster.Keyspace = "example"
-	cluster.Consistency = c_consistency
+	cluster.Consistency = cConsistency
 	session, err := cluster.CreateSession()
 
 	err = session.Query(`INSERT INTO tweet (timeline, id, text) VALUES (?, ?, ?)`, "me", gocql.TimeUUID(), "tweet created by simple cassandra client").Exec()
   if err != nil { log.Fatalf("Authentication error: %s", err)  }
 
-	err = session.Query(`SELECT id, text FROM tweet WHERE timeline = ? LIMIT 1`, "me").Consistency(c_consistency).Scan(&id, &text)
+	err = session.Query(`SELECT id, text FROM tweet WHERE timeline = ? LIMIT 1`, "me").Consistency(cConsistency).Scan(&id, &text)
   if err != nil {  log.Fatal(err)  }
 
 	iter := session.Query(`SELECT id, text FROM tweet WHERE timeline = ?`, "me").Iter()
 	for i := 0;iter.Scan(&id, &text);i++ {
-    tweets = append(tweets, tweet_struct{"me", id, text})
+    tweets = append(tweets, tweetStruct{"me", id, text})
 	}
 	if err := iter.Close(); err != nil { log.Fatal(err) }
 
