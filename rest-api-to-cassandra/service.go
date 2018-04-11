@@ -2,9 +2,9 @@
 package main
 
 import (
-	_ "crypto/rand"
+	"crypto/rand"
 	"crypto/sha512"
-	_ "encoding/base64"
+	"encoding/base64"
   "encoding/hex"
 	"encoding/json"
 	"errors"
@@ -14,7 +14,7 @@ import (
 	"log"
 	"net/http"
 	"strings"
-	_ "time"
+	"time"
 	"io"
 	_ "fmt"
 )
@@ -50,8 +50,7 @@ func readConfig(confFilePath string) (configFile, error) {
 // datastructures section
 //------------------------------------------------------------------------------------------------
 func createDatastructure(session *gocql.Session, keyspace string) error {
-	err := session.Query("CREATE KEYSPACE IF NOT EXISTS " + keyspace +
-		" WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }").Exec()
+	err := session.Query("CREATE KEYSPACE IF NOT EXISTS " + keyspace + " WITH REPLICATION = { 'class' : 'SimpleStrategy', 'replication_factor' : 1 }").Exec()
 	if err != nil { return err }
 
 	err = session.Query("CREATE TABLE IF NOT EXISTS " + keyspace + ".users (id UUID, username varchar, password varchar, active boolean, ts timestamp, PRIMARY KEY (id) )").Exec()
@@ -66,11 +65,8 @@ func createDatastructure(session *gocql.Session, keyspace string) error {
 	err = session.Query("CREATE INDEX IF NOT EXISTS ON testapp.users (ts)").Exec()
 	if err != nil { return err }
 
-	err = session.Query("CREATE TABLE IF NOT EXISTS " +
-		keyspace +
-		".sessions (" +
-		"session_id varchar PRIMARY KEY," +
-		"username varchar)").Exec()
+	err = session.Query("CREATE TABLE IF NOT EXISTS " +keyspace + ".sessions (session_id varchar PRIMARY KEY, username varchar)").Exec()
+
 	return err
 }
 //------------------------------------------------------------------------------------------------
@@ -165,9 +161,9 @@ func deleteSession(session *gocql.Session, session_id string) (int, error) {
 //------------------------------------------------------------------------------------------------
 // Function handling creating new session
 func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
-	var request newUserRequest
+	var request userStruct
 	var session_id string
-	var count int
+	var password, userid string
 
 	err := json.Unmarshal(*body, &request)
 	if err != nil {
@@ -175,24 +171,20 @@ func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
 	}
 
 	// Here should be call of function to extended validation, but nothing was in requirements
-	if request.Password == "" || request.Username == "" {
-		return session_id, http.StatusBadRequest, errors.New("User or password is empty")
-	}
+	if request.Password == "" || request.Username == "" { return session_id, http.StatusBadRequest, errors.New("User or password is empty") }
 
-	// Prepare password hash to make request to DB
-	hash := sha256.New()
+	// Prepare password hash
+	hash := sha512.New()
 	hash.Write([]byte(request.Password))
 
 	// Check if user and password is valid
-	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "' and password ='" + hex.EncodeToString(hash.Sum(nil)) + "'").Scan(&count)
-	if err != nil {
-		return session_id, http.StatusInternalServerError, err
-	}
-
-	if count == 0 {
-		return session_id, http.StatusUnauthorized, errors.New("User name or password is not correct")
-	}
-
+// this line won't work! cuz cassandra datamodel wasn't designed to support select query by username+password
+//	err = session.Query("SELECT COUNT(*) from users where username = '" + request.Username + "' and password ='" + hex.EncodeToString(hash.Sum(nil)) + "'").Scan(&count)
+// hence, solution is to get password hash and compare with hash of provided password
+	err = session.Query("SELECT id, password from users where username = '" + request.Username + "' ").Scan(&userid, &password)
+	if err != nil { return session_id, http.StatusInternalServerError, err }
+	if userid == "" {return session_id, http.StatusUnauthorized, errors.New("User does not exist")}
+	if password != hex.EncodeToString(hash.Sum(nil)) { return session_id, http.StatusUnauthorized, errors.New("User password does not match") }
 	// prepare session ID for a new session
 	session_id, err = generateSessionId(session)
 	if err != nil {
@@ -201,9 +193,7 @@ func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
 
 	// set TTL to a one year to expire in same time with cookie
 	err = session.Query("INSERT INTO sessions (session_id,username) VALUES (?,?) USING TTL 31536000", session_id, request.Username).Exec()
-	if err != nil {
-		return session_id, http.StatusInternalServerError, err
-	}
+	if err != nil { return session_id, http.StatusInternalServerError, err  }
 
 	return session_id, http.StatusCreated, nil
 }
@@ -211,17 +201,12 @@ func createSession(body *[]byte, session *gocql.Session) (string, int, error) {
 // Function checking if provided cookie matching to active sessions
 func checkSession(session *gocql.Session, session_id string) (int, error) {
 	var count int
-
 	// fast path to don't use DB when session_id cookie not indicated at all
-	if session_id == "" {
-		return http.StatusUnauthorized, nil
-	}
+	if session_id == "" { return http.StatusUnauthorized, nil }
 
 	// Check if such session exist
 	err := session.Query("SELECT COUNT(*) from sessions where session_id = '" + session_id + "'").Scan(&count)
-	if err != nil {
-		return http.StatusInternalServerError, err
-	}
+	if err != nil { return http.StatusInternalServerError, err }
 
 	if count == 0 {
 		return http.StatusUnauthorized, nil
@@ -239,55 +224,53 @@ func sessionHandler(w http.ResponseWriter, r *http.Request, session *gocql.Sessi
 	body, _ := ioutil.ReadAll(r.Body)
 
 	switch {
-	case r.Method == "POST":
-		session_id, error_code, err := createSession(&body, session)
-		if err != nil {
-			log.Println("Error on creating session: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))
-		}
+		case r.Method == "POST":
+				session_id, errorCode, err := createSession(&body, session)
+				if err != nil { log.Println("Error on creating session: ", err, "\nClient: ", r.RemoteAddr, " Request: ", string(body))  }
 
-		// Set expire for a one year, same as in sessions table
-		if session_id != "" {
-			expire := time.Now().AddDate(1, 0, 0)
+				// Set expire for a one year, same as in sessions table
+				if session_id != "" {
+					expire := time.Now().AddDate(1, 0, 0)
+					authCookie := &http.Cookie{
+						Name:    "session_id",
+						Expires: expire,
+						Value:   session_id,
+					}
+					http.SetCookie(w, authCookie)
+				}
+				http.Error(w, http.StatusText(errorCode), errorCode)
 
-			authCookie := &http.Cookie{
-				Name:    "session_id",
-				Expires: expire,
-				Value:   session_id,
-			}
+		case r.Method == "GET":
+				session_id, err := r.Cookie("session_id")
+				//  this is critial - when cookie doesnot exist, session_id returned as nil, hence next call (checkSession) will fail
+				if err != nil { log.Println("Cookie returned empty session_id: ", err); return }
 
-			http.SetCookie(w, authCookie)
-		}
+				errorCode, err := checkSession(session, session_id.Value)
+				if err != nil { log.Println("Error on checking authorization: ", err) }
+				http.Error(w, http.StatusText(errorCode), errorCode)
 
-		http.Error(w, http.StatusText(error_code), error_code)
+		case r.Method == "DELETE":
+				session_id, _ := r.Cookie("session_id")
+				errorCode, err := deleteSession(session, session_id.Value)
+				if err != nil {
+					log.Println("Error on checking authorization: ", err)
+				}
 
-	case r.Method == "GET":
-		session_id, _ := r.Cookie("session_id")
-		error_code, err := checkSession(session, session_id.Value)
-		if err != nil {
-			log.Println("Error on checking authorization: ", err)
-		}
-		http.Error(w, http.StatusText(error_code), error_code)
-	case r.Method == "DELETE":
-		session_id, _ := r.Cookie("session_id")
-		error_code, err := deleteSession(session, session_id.Value)
-		if err != nil {
-			log.Println("Error on checking authorization: ", err)
-		}
+				// Rewrite session_id cookie with empty sting and set expiration now
+				expire := time.Now()
 
-		// Rewrite session_id cookie with empty sting and set expiration now
-		expire := time.Now()
+				authCookie := &http.Cookie{
+					Name:    "session_id",
+					Expires: expire,
+					Value:   "",
+				}
 
-		authCookie := &http.Cookie{
-			Name:    "session_id",
-			Expires: expire,
-			Value:   "",
-		}
+				http.SetCookie(w, authCookie)
 
-		http.SetCookie(w, authCookie)
+				http.Error(w, http.StatusText(errorCode), errorCode)
 
-		http.Error(w, http.StatusText(error_code), error_code)
-	default:
-		http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
+		default:
+				http.Error(w, http.StatusText(http.StatusBadRequest), http.StatusBadRequest)
 	}
 
 }
