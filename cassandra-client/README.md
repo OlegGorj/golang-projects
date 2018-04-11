@@ -19,13 +19,15 @@ What it does:
 
 ## Cassandra setup steps
 
-There are a few configuration tweaks required for the code to work properly:
+There are a few configuration tweaks required for the code to work properly
+
+Authentication Setup:
 
 1. in `cassandra.yml`, set `authenticator` as `PasswordAuthenticator`. This is done to support password-based authentication.
 2. again, in `cassandra.yml`, set `authorizer` as `CassandraAuthorizer`. In order for authorization to work properly, we require use of `CassandraAuthorizer`. If, for your purposes you don't need authorization at all, you can switch to use `AllowAllAuthorizer`, which disables authorization.
 
 For more details related to cassandra.yml and configurations, here is [the link](https://docs.datastax.com/en/cassandra/3.0/cassandra/configuration/configCassandra_yaml.html)
-
+For more detailed information, refer to http://docs.datastax.com/en/cassandra/3.0/cassandra/security/security_config_native_authenticate_t.html.
 
 ## Cassandra keyspace and table setup steps
 
