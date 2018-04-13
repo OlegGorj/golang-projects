@@ -20,6 +20,7 @@ branches:
   only:
     - master
     - rest-api-service-cassandra
+    - /^(?i:deploy)-.*$/
   except:
   - legacy
   - experimental
@@ -41,8 +42,6 @@ install:
   - sudo apt-get install git-all
   - git --version
   - git clone https://github.com/OlegGorj/go-templates-collection.git
-
-deploy:
   - cd rest-api-to-cassandra
   - make build
 
