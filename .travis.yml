@@ -36,4 +36,13 @@ before_install:
   - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
 
 install:
-  - sudo pip install docker-compose
+  - sudo apt-get install git-all
+  - git --version
+  - git clone https://github.com/OlegGorj/go-templates-collection.git
+
+deploy:
+  - cd rest-api-to-cassandra
+  - make build
+
+
+#
