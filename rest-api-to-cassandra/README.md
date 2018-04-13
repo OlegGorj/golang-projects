@@ -8,8 +8,7 @@
 This project designed to test functionality of Golang REST API with Cassandra as backend.
 
 > NOTE:  
-> Git Repository for deployment Cassandra on Docker containers located at [this link - cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker)
-
+> Project to setup Cassandra database in Docker containers can be found at this [link: Cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker). You can setup ether single container for one-node cluster on local machine or deploy multiple containers to create multiple Cassandra nodes.
 
 Service have configuration file(config.json), which contains:
 
