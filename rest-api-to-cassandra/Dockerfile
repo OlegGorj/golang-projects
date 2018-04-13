@@ -3,19 +3,21 @@ FROM iron/go:dev
 ARG BUILD_DATE
 ARG VERSION
 ARG SERVICEPORT
+ARG CONTAINER
 
 EXPOSE ${SERVICEPORT}
 
-WORKDIR /app
+ENV WDIR /go/src/app
+ENV PATH $WDIR:$PATH
 
-ENV BUILD_DATE ${BUILD_DATE}
-ENV VERSION ${VERSION}
-#ENV SRC_DIR=/go/src/github.com/OlegGorj/go-templates-collection/tree/master/rest-api-to-cassandra
-#ENV PATH $SRC_DIR:$PATH
+WORKDIR ${WDIR}
 
-ADD . /app
+LABEL BUILD_DATE ${BUILD_DATE}
+LABEL VERSION ${VERSION}
+LABEL CONTAINER ${CONTAINER}
+
+ADD . ${WDIR}
 RUN go get github.com/gocql/gocql
-RUN go build -o restapiservice service.go
-#; cp restapiservice /app/; cp config.json /app/
+RUN CGO_ENABLED=0 GOOS=linux go build -o restapiservice service.go
 
-ENTRYPOINT ["/app/restapiservice"]
+ENTRYPOINT ["${WDIR}/restapiservice"]
