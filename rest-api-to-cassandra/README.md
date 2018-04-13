@@ -119,4 +119,35 @@ CREATE INDEX IF NOT EXISTS ON testapp.users (active)
 CREATE INDEX IF NOT EXISTS ON testapp.users (ts)
 ```
 
+
+## Deploy service with Docker container
+
+Build image part:
+
+```bash
+cd rest-api-to-cassandra/
+docker build --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") --build-arg VERSION=1.0.1 --build-arg SERVICEPORT=8080 --no-cache --tag oleggorj/rest-api-service:latest .
+```
+
+Assuming that Cassandra containers run in network named `vnet`, i.e. deployed using option `--network vnet`, service container must be deployed on the same `vnet` network so it could "see" Cassandra nodes.
+
+Hence, start container command will look like
+
+```bash
+docker run --net vnet --name restapiservice -p 8080:8080 -d oleggorj/rest-api-service ; docker logs -f restapiservice
+```
+
+If no issues, output may look similar to the following
+
+```
+restapiservice
+884454d975d3d60ac72c9bb621ad0def57eb36fbbcbdc05e5ee529369bcab330
+2018/04/13 00:00:51 API Service starting..
+2018/04/13 00:00:51 Configs initialized.
+2018/04/13 00:00:51 Session to backend created.
+2018/04/13 00:00:51 Backend datastructures created.
+2018/04/13 00:00:51 Keyspace for backend is set.
+
+```
+
 ---

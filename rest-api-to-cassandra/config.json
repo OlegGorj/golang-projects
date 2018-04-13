@@ -1,6 +1,6 @@
 {
   "port": "8080",
-  "serverslist": "127.0.0.1,127.0.0.1",
+  "serverslist": "cassandra.vnet",
   "keyspace": "testapp",
   "userstable": "users",
   "sessionstable": "session",
