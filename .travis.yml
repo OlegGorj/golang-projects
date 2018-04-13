@@ -1,0 +1,51 @@
+language: bash
+
+sudo: required
+
+services: docker
+
+env:
+  global:
+    - VERSION: "1.1.0"
+    - BUILD_DATE: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+    - REPO: $DOCKER_USERNAME
+    - SERVICEPORT: "8080"
+    - TAG_MINOR: ${VERSION%.*}
+    - TAG_MAJOR: ${VERSION%%.*}
+    - GIT_REPO_LINK: "https://github.com/OlegGorj/go-templates-collection.git#rest-api-service-cassandra:rest-api-to-cassandra"
+    - IMAGE: "rest-api-service"
+    - TAG: "latest"
+
+branches:
+  only:
+    - master
+    - /^(?i:deploy)-.*$/
+  except:
+    - rest-api-service-cassandra
+    - legacy
+    - experimental
+
+addons:
+  apt:
+    packages:
+      - libcurl4-openssl-dev
+      - libelf-dev
+      - libdw-dev
+      - cmake
+
+before_install:
+  - docker info
+  - docker version
+  - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  - sudo apt-get update
+  - sudo apt-get install git-all
+
+install:
+  - git --version
+  - git clone https://github.com/OlegGorj/go-templates-collection.git
+  - cd rest-api-to-cassandra
+  - make build
+  - make push
+
+
+#

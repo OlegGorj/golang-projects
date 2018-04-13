@@ -4,6 +4,9 @@
 ![Quality Gates](https://sonarcloud.io/api/project_badges/measure?project=cassandra-client&metric=alert_status)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1818748c6ba745ce97bb43ab6dbbfd2c)](https://www.codacy.com/app/oleggorj/go-templates-collection?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=OlegGorj/go-templates-collection&amp;utm_campaign=Badge_Grade)
 
-# go-templates-collection
+# Collection of Golang-based projects and templates
 
-Repository to store relatively small GOLANG code snippets, test projects to test functionality and components that I'm working on.
+Repository to store relatively small and moderate GOLANG code snippets, test projects to test functionality and components that I'm working on.
+
+
+---
