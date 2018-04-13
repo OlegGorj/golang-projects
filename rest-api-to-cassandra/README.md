@@ -139,6 +139,12 @@ export VERSION=1.0.1
 export SERVICEPORT=8080
 export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 export CONTAINER=restapiservice
+# rest-api-to-cassandra is subdirectory where Dockerfile is located
+# rest-api-service-cassandra is branch
+export GIT_REPO_LINK=https://github.com/OlegGorj/go-templates-collection.git#rest-api-service-cassandra:rest-api-to-cassandra
+export REPO=OlegGorj
+export IMAGE=rest-api-service
+export TAG=latest
 
 make build
 
