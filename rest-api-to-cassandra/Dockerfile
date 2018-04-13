@@ -20,4 +20,4 @@ ADD . ${WDIR}
 RUN go get github.com/gocql/gocql
 RUN CGO_ENABLED=0 GOOS=linux go build -o ${CONTAINER} service.go
 
-ENTRYPOINT ["${WDIR}/${CONTAINER}"]
+ENTRYPOINT ${WDIR}/${CONTAINER}

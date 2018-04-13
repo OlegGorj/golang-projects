@@ -9,7 +9,6 @@ clean:
 
 .PHONY: build
 build:
-	docker images
 	docker build \
 		--build-arg BUILD_DATE=${BUILD_DATE} \
 		--build-arg VERSION=${VERSION} \
@@ -22,6 +21,10 @@ build:
 .PHONY: push
 push:
 	docker image push ${REPO}/${IMAGE}:${TAG}
+
+.PHONY: deploy
+deploy:
+	docker run --net vnet --name ${CONTAINER} -p 8080:8080 -d ${REPO}/${IMAGE}:${TAG}
 
 .PHONY: logs
 logs:

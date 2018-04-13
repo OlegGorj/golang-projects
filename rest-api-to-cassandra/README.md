@@ -7,6 +7,10 @@
 
 This project designed to test functionality of Golang REST API with Cassandra as backend.
 
+> NOTE:  
+> Git Repository for deployment Cassandra on Docker containers located at [this link - cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker)
+
+
 Service have configuration file(config.json), which contains:
 
  - port for service listen
@@ -30,6 +34,8 @@ Service have configuration file(config.json), which contains:
 External dependency: http://github.com/gocql/gocq
 
 Logs will write to stdout.
+
+---
 
 ## Summary application have two methods: /user/ and /session.
 
@@ -98,6 +104,7 @@ Deleting session indicated in cookie session_id. Responding with following codes
 
 500 - Internal server error -- if errors happened on connection to database or proceeding CQL requests.
 
+---
 
 ## Database structure
 
@@ -119,22 +126,33 @@ CREATE INDEX IF NOT EXISTS ON testapp.users (active)
 CREATE INDEX IF NOT EXISTS ON testapp.users (ts)
 ```
 
+---
 
 ## Deploy service with Docker container
 
-Build image part:
+To build the image, execute the following lines:
 
 ```bash
+
 cd rest-api-to-cassandra/
-docker build --build-arg BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ") --build-arg VERSION=1.0.1 --build-arg SERVICEPORT=8080 --no-cache --tag oleggorj/rest-api-service:latest .
+
+export VERSION=1.0.1
+export SERVICEPORT=8080
+export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+export CONTAINER=restapiservice
+
+make build
+
 ```
 
-Assuming that Cassandra containers run in network named `vnet`, i.e. deployed using option `--network vnet`, service container must be deployed on the same `vnet` network so it could "see" Cassandra nodes.
+>  Assuming that Cassandra containers run in network named `vnet`, i.e. deployed using option `--network vnet`, service container must be deployed on the same `vnet` network so it could "see" Cassandra nodes. For more information how to deploy Cassandra on Docker containers follow [this link - cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker)
 
-Hence, start container command will look like
+To deploy container and view the logs, execute `make deploy `and `make logs` :
 
 ```bash
-docker run --net vnet --name restapiservice -p 8080:8080 -d oleggorj/rest-api-service ; docker logs -f restapiservice
+make deploy
+make logs
+
 ```
 
 If no issues, output may look similar to the following
