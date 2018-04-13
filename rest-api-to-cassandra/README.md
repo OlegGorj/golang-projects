@@ -7,19 +7,16 @@
 
 This project designed to test functionality of Golang REST API with Cassandra as backend.
 
->
+> NOTE:  
 > Project to setup Cassandra database in Docker containers can be found at this [link: Cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker). You can setup ether single container for one-node cluster on local machine or deploy multiple containers to create multiple Cassandra nodes.
->
 
-Service have configuration file (default `config.json`), which contains:
+Service have configuration file(config.json), which contains:
 
  - port for service listen
  - addresses of Cassandra servers
  - Keyspace name. If such keyspace is absent, application will create new one with necessary tables.
- - user name and password for Cassandra backend
 
 ### Example of config file:
-
 ```json
 {
   "port": "8080",
@@ -36,6 +33,8 @@ Service have configuration file (default `config.json`), which contains:
 External dependency: http://github.com/gocql/gocq
 
 Logs will write to stdout.
+
+---
 
 ## Summary application have two methods: /user/ and /session.
 
@@ -104,6 +103,7 @@ Deleting session indicated in cookie session_id. Responding with following codes
 
 500 - Internal server error -- if errors happened on connection to database or proceeding CQL requests.
 
+---
 
 ## Database structure
 
@@ -123,6 +123,48 @@ Indexes to support lookups and queries
 CREATE INDEX IF NOT EXISTS ON testapp.users (username)
 CREATE INDEX IF NOT EXISTS ON testapp.users (active)
 CREATE INDEX IF NOT EXISTS ON testapp.users (ts)
+```
+
+---
+
+## Deploy service with Docker container
+
+To build the image, execute the following lines:
+
+```bash
+
+cd rest-api-to-cassandra/
+
+export VERSION=1.0.1
+export SERVICEPORT=8080
+export BUILD_DATE=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
+export CONTAINER=restapiservice
+
+make build
+
+```
+
+>  Assuming that Cassandra containers run in network named `vnet`, i.e. deployed using option `--network vnet`, service container must be deployed on the same `vnet` network so it could "see" Cassandra nodes. For more information how to deploy Cassandra on Docker containers follow [this link - cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker)
+
+To deploy container and view the logs, execute `make deploy `and `make logs` :
+
+```bash
+make deploy
+make logs
+
+```
+
+If no issues, output may look similar to the following
+
+```
+restapiservice
+884454d975d3d60ac72c9bb621ad0def57eb36fbbcbdc05e5ee529369bcab330
+2018/04/13 00:00:51 API Service starting..
+2018/04/13 00:00:51 Configs initialized.
+2018/04/13 00:00:51 Session to backend created.
+2018/04/13 00:00:51 Backend datastructures created.
+2018/04/13 00:00:51 Keyspace for backend is set.
+
 ```
 
 ---
