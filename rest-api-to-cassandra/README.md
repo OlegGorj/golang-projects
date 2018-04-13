@@ -2,19 +2,21 @@
 [![GitHub issues](https://img.shields.io/github/issues/OlegGorj/go-templates-collection.svg)](https://github.com/OlegGorj/go-templates-collection/issues)
 ![Quality Gates](https://sonarcloud.io/api/project_badges/measure?project=cassandra-client&metric=alert_status)
 [![Codacy Badge](https://api.codacy.com/project/badge/Grade/1818748c6ba745ce97bb43ab6dbbfd2c)](https://www.codacy.com/app/oleggorj/go-templates-collection?utm_source=github.com&amp;utm_medium=referral&amp;utm_content=OlegGorj/go-templates-collection&amp;utm_campaign=Badge_Grade)
+[![Build Status](https://travis-ci.org/OlegGorj/go-templates-collection.svg?branch=rest-api-service-cassandra)](https://travis-ci.org/OlegGorj/go-templates-collection)
 
-# rest-api-to-cassandra
+# REST API with Cassandra backend
 
 This project designed to test functionality of Golang REST API with Cassandra as backend.
 
 > NOTE:  
 > Project to setup Cassandra database in Docker containers can be found at this [link: Cassandra-on-docker](https://github.com/OlegGorj/cassandra-on-docker). You can setup ether single container for one-node cluster on local machine or deploy multiple containers to create multiple Cassandra nodes.
 
-Service have configuration file(config.json), which contains:
+Service have configuration file(`config.json`), which contains:
 
  - port for service listen
  - addresses of Cassandra servers
  - Keyspace name. If such keyspace is absent, application will create new one with necessary tables.
+ - Cassandra user name and password. TODO: have credentials management with appropriate solution (i.e. Vault)
 
 ### Example of config file:
 ```json
