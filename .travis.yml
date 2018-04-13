@@ -6,7 +6,7 @@ services: docker
 
 env:
   global:
-    - VERSION: "3.11.2"
+    - VERSION: "1.1.0"
     - BUILD_DATE: $(date -u +"%Y-%m-%dT%H:%M:%SZ")
     - REPO: $DOCKER_USERNAME
     - SERVICEPORT: "8080"
@@ -19,11 +19,11 @@ env:
 branches:
   only:
     - master
-    - rest-api-service-cassandra
     - /^(?i:deploy)-.*$/
   except:
-  - legacy
-  - experimental
+    - rest-api-service-cassandra
+    - legacy
+    - experimental
 
 addons:
   apt:
@@ -37,13 +37,15 @@ before_install:
   - docker info
   - docker version
   - docker login -u $DOCKER_USERNAME -p $DOCKER_PASSWORD
+  - sudo apt-get update
+  - sudo apt-get install git-all
 
 install:
-  - sudo apt-get install git-all
   - git --version
   - git clone https://github.com/OlegGorj/go-templates-collection.git
   - cd rest-api-to-cassandra
   - make build
+  - make push
 
 
 #
